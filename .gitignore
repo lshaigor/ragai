@@ -1,4 +1,4 @@
 .env
-ragai_ven
+ragai_venv/*
 .chroma
 .DS_Store

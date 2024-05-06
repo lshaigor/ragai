@@ -72,27 +72,48 @@ def get_response(user_input):
     
     return response['answer']
 
-# app config
+# Web page setup
+# Basic page config
 st.set_page_config(page_title="Chat with websites", page_icon="🤖")
-st.title("Chat with websites")
 
-# sidebar
+st.title("RAG AI based chat with websites")
+
+# Left sidebar configuration to show logo & URL text box
 with st.sidebar:
-    st.header("Settings")
+    st.image('src/wbg-logo.svg', width=140) #, caption='WBA AI Hackathon')
+
+    #create blank space before text box
+    st.text("")
+    st.text("")
+    st.text("")
+    st.text("")
+    st.text("")
+    st.text("")
+    st.text("")
+    st.text("")
+    st.text("")
+    st.text("")
+    st.text("")
+    st.text("")
+
     website_url = st.text_input("Website URL")
 
+# Right (Main) section page configuration to show chat history and user input
 if website_url is None or website_url == "":
+    #No URL is available yet - not RAG AI is possible yet
     st.info("Please enter a website URL")
 
 else:
-    # session state
+    # Now we have Top page URL 
+    # Evaluate session state and start populate required data that will be used in the chat
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = [
-            AIMessage(content="Hello, I am a bot. How can I help you?"),
+            AIMessage(content="Hello, I am a WBA hackaton AI bot. How can I help you?"),
         ]
     if "vector_store" not in st.session_state:
         st.session_state.vector_store = get_vectorstore_from_url(website_url)    
         print ("Loading get_vectorstore_from_url: ", website_url)
+ 
     # user input
     user_query = st.chat_input("Type your message here...")
     if user_query is not None and user_query != "":
@@ -100,7 +121,6 @@ else:
         st.session_state.chat_history.append(HumanMessage(content=user_query))
         st.session_state.chat_history.append(AIMessage(content=response))
         
-       
 
     # conversation
     for message in st.session_state.chat_history:
