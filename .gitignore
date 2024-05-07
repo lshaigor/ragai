@@ -2,3 +2,5 @@
 ragai_venv/*
 .chroma
 .DS_Store
+ragai/*
+models/*
