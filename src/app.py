@@ -1,5 +1,4 @@
 # pip install streamlit langchain lanchain-openai beautifulsoup4 python-dotenv chromadb
-#example URL: https://www.metacritic.com/game/hogwarts-legacy/
 
 import streamlit as st
 from langchain_core.messages import AIMessage, HumanMessage
@@ -11,7 +10,10 @@ from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
-
+import requests
+from bs4 import BeautifulSoup
+import cloudscraper
+from urllib.parse import urljoin
 
 load_dotenv()
 
@@ -20,7 +22,6 @@ def get_vectorstore_from_url(url):
     loader = WebBaseLoader(url)
     document = loader.load()
     print("get_vectorstore_from_url",document)
-    
     # split the document into chunks
     text_splitter = RecursiveCharacterTextSplitter()
     document_chunks = text_splitter.split_documents(document)
@@ -33,7 +34,7 @@ def get_vectorstore_from_url(url):
 def get_context_retriever_chain(vector_store):
     llm = ChatOpenAI()
     
-    retriever = vector_store.as_retriever()
+    retriever = vector_store.as_retriever(search_kwargs={"k": 7})
     
     prompt = ChatPromptTemplate.from_messages([
       MessagesPlaceholder(variable_name="chat_history"),
@@ -42,8 +43,7 @@ def get_context_retriever_chain(vector_store):
     ])
     
     retriever_chain = create_history_aware_retriever(llm, retriever, prompt)
-    print("get_context_retriever_chain",retriever_chain)
-
+    
     return retriever_chain
     
 def get_conversational_rag_chain(retriever_chain): 
@@ -57,8 +57,7 @@ def get_conversational_rag_chain(retriever_chain):
     ])
     
     stuff_documents_chain = create_stuff_documents_chain(llm,prompt)
-    print("get_conversational_rag_chain",stuff_documents_chain)
-
+    
     return create_retrieval_chain(retriever_chain, stuff_documents_chain)
 
 def get_response(user_input):
@@ -72,13 +71,12 @@ def get_response(user_input):
     
     return response['answer']
 
-# Web page setup
-# Basic page config
+# app config
 st.set_page_config(page_title="Chat with websites", page_icon="🤖")
-
 st.title("RAG AI based chat with websites")
 
-# Left sidebar configuration to show logo & URL text box
+# sidebar
+website_url = 'https://www.metacritic.com/game/elden-ring/'
 with st.sidebar:
     st.image('src/wbg-logo.svg', width=140) #, caption='WBA AI Hackathon')
 
@@ -94,28 +92,46 @@ with st.sidebar:
     st.text("")
     st.text("")
     st.text("")
-    st.text("")
-    st.text("")
+    st.text("")    
+    st.header("Settings")
+    website_url = st.text_input("Website URL",value=website_url)
 
 
-    website_url = st.text_input("Website URL")
-
-# Right (Main) section page configuration to show chat history and user input
 if website_url is None or website_url == "":
-    #No URL is available yet - not RAG AI is possible yet
     st.info("Please enter a website URL")
 
 else:
-    # Now we have Top page URL 
-    # Evaluate session state and start populate required data that will be used in the chat
+    # session state
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = [
             AIMessage(content="Hello, I am a WBA hackaton AI bot. How can I help you?"),
         ]
     if "vector_store" not in st.session_state:
         st.session_state.vector_store = get_vectorstore_from_url(website_url)    
-        print ("Loading get_vectorstore_from_url: ", website_url)
- 
+        
+        html_doc = requests.get(website_url)
+        scraper = cloudscraper.create_scraper()
+
+        soup = BeautifulSoup(scraper.get("https://www.metacritic.com/game/elden-ring/").text, 'html.parser')
+        with st.spinner(':red[Please wait while we fetch data from urls]'):
+            secondary_urls = []
+            for a in soup.find_all('a', href=True):
+                secondary_url = urljoin(website_url,a['href'])
+                secondary_urls.append(secondary_url)
+
+            ctr = 0
+            for secondary_url in set(secondary_urls):
+                try:
+                    st.session_state.vector_store = get_vectorstore_from_url(secondary_url) 
+                    ctr += 1
+                    with st.sidebar:
+                        st.write(f':blue[Processed {secondary_url}]')                    
+
+                except Exception as e:
+                    print(f'Error scraping {secondary_url}')
+                    pass
+                if ctr > 9:
+                    break
     # user input
     user_query = st.chat_input("Type your message here...")
     if user_query is not None and user_query != "":
@@ -123,6 +139,7 @@ else:
         st.session_state.chat_history.append(HumanMessage(content=user_query))
         st.session_state.chat_history.append(AIMessage(content=response))
         
+       
 
     # conversation
     for message in st.session_state.chat_history:
