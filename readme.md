@@ -41,7 +41,10 @@ OPENAI_API_KEY=[your-openai-api-key]
 To run the Streamlit app:
 
 ```bash
+# Run the OpenAI llm
 streamlit run app.py
+# Run the ll
+streamlit run llama2.py
 ```
 
 ## License
